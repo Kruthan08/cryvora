@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Cryvora - Threat Detector</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 20s ease infinite;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+            color: #e0e0e0;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 0, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            animation: gridMove 10s linear infinite;
+            z-index: -2;
+        }
+        .particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        .particle {
+            position: absolute;
+            background: rgba(0, 255, 255, 0.5);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            animation: float 10s linear infinite;
+        }
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(50px, 50px); }
+        }
+        @keyframes float {
+            0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+        }
+        .container { 
+            position: relative; 
+            z-index: 1; 
+            background: rgba(0, 0, 0, 0.8); 
+            border: 1px solid rgba(0, 255, 255, 0.5); 
+            border-radius: 10px; 
+            padding: 20px; 
+            margin-top: 50px; 
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); 
+            color: #e0e0e0;
+        }
+        .bg-dark .container { background: rgba(0, 0, 0, 0.9); color: #e0e0e0; }
+        #result, #aiResult { animation: fadeIn 0.5s; border: 1px solid rgba(255, 0, 255, 0.5); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        #screenshot, #uploadedImage { max-width: 100%; border-radius: 5px; border: 1px solid rgba(0, 255, 255, 0.5); display: none; }
+        #historyList, #reportsList { max-height: 200px; overflow-y: auto; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 0, 255, 0.5); }
+        .spinner { display: none; }
+        .confidence { font-size: 0.9em; color: #00ffff; }
+        .social-buttons { text-align: center; margin-top: 20px; }
+        .social-buttons a { margin: 0 10px; color: #00ffff; border-color: #00ffff; }
+        .social-buttons a:hover { background: #00ffff; color: #000; }
+        .section { display: none; }
+        .section.active { display: block; }
+        .nav-btn { margin: 0 10px; background: rgba(0, 255, 255, 0.2); border: 1px solid #00ffff; color: #00ffff; }
+        .nav-btn:hover { background: #00ffff; color: #000; }
+        h1, h3 { color: #00ffff; text-shadow: 0 0 10px #00ffff; }
+        .btn { background: rgba(0, 255, 255, 0.2); border: 1px solid #00ffff; color: #00ffff; }
+        .btn:hover { background: #00ffff; color: #000; }
+        .progress-bar { background: linear-gradient(90deg, #00ffff, #ff00ff); }
+        #globalProgress { position: fixed; top: 0; left: 0; width: 100%; height: 5px; background: rgba(0,0,0,0.5); z-index: 10; display: none; }
+        #globalProgressBar { height: 100%; background: #00ffff; width: 0%; transition: width 0.5s; }
+        [data-bs-toggle="tooltip"] { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="globalProgress"><div id="globalProgressBar"></div></div>
+    <div class="particles" id="particles"></div>
+    <div class="container">
+        <h1 class="text-center"><i class="fas fa-shield-alt"></i> Cryvora</h1>
+        <p class="text-center">Stay safe online with advanced threat detection! <i class="fas fa-lock"></i></p>
+
+        <!-- Navigation -->
+        <nav class="text-center mb-4">
+            <button class="btn nav-btn" data-section="checker">Threat Checker</button>
+            <button class="btn nav-btn" data-section="dashboard">Dashboard</button>
+            <button class="btn nav-btn" data-section="history">History</button>
+            <button class="btn nav-btn" data-section="reports">Reports</button>
+            <button class="btn nav-btn" data-section="ai-blocker">AI Blocker</button>
+            <button class="btn nav-btn" data-section="settings">Settings</button>
+        </nav>
+
+        <!-- Sections -->
+        <div id="checker" class="section active">
+            <h3>Threat Checker</h3>
+            <div class="input-group mb-3">
+                <input type="text" id="urlInput" class="form-control" placeholder="https://example.com" style="background: rgba(0,0,0,0.5); border: 1px solid #00ffff; color: #e0e0e0;" data-bs-toggle="tooltip" title="Enter a valid URL starting with http:// or https://">
+                <button id="checkBtn" class="btn"><i class="fas fa-search"></i> Analyze URL <div class="spinner-border spinner-border-sm ms-2" id="urlSpinner" style="display: none;"></div></button>
+                <button id="quickScanBtn" class="btn ms-2"><i class="fas fa-bolt"></i> Quick Scan</button>
+            </div>
+            <div class="mb-3">
+                <input type="file" id="imageInput" class="form-control" accept="image/*" style="background: rgba(0,0,0,0.5); border: 1px solid #00ffff; color: #e0e0e0;" data-bs-toggle="tooltip" title="Upload an image for OCR analysis">
+                <button id="uploadBtn" class="btn mt-2"><i class="fas fa-upload"></i> Analyze Image <div class="spinner-border spinner-border-sm ms-2" id="imageSpinner" style="display: none;"></div></button>
+            </div>
+            <button id="shareBtn" class="btn mb-3" style="display: none;"><i class="fas fa-share"></i> Share on Twitter</button>
+            <button id="exportBtn" class="btn mb-3" style="display: none;"><i class="fas fa-download"></i> Export as Image</button>
+            <div id="result" class="alert alert-info mt-3" style="display: none; background: rgba(0,0,0,0.5); border: 1px solid #00ffff; color: #e0e0e0;"></div>
+            <div class="mt-3">
+                <label>Threat Level:</label>
+                <div class="progress" style="background: rgba(0,0,0,0.5);">
+                    <div id="threatGauge" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                </div>
+                <div id="confidence" class="confidence mt-1"></div>
+            </div>
+            <div class="mt-3">
+                <h5>Website Preview:</h5>
+                <img id="screenshot" alt="Website Screenshot">
+            </div>
+            <div class="mt-3">
+                <h5>Uploaded Image:</h5>
+                <img id="uploadedImage" alt="Uploaded Image">
+            </div>
+            <div class="social-buttons">
+                <a href="https://instagram.com/the_legend._.08" class="btn" target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
+                <a href="https://github.com/Kruthan08" class="btn" target="_blank"><i class="fab fa-github"></i> GitHub</a>
+                <a href="https://twitter.com/kruthan8" class="btn" target="_blank"><i class="fab fa-twitter"></i> Twitter</a>
+            </div>
+        </div>
+
+        <div id="dashboard" class="section">
+            <h3>Dashboard</h3>
+            <p>Welcome! Here's your summary:</p>
+            <ul>
+                <li>Total Scans: <span id="totalScans">0</span></li>
+                <li>Recent Alerts: <span id="recentAlerts">None</span></li>
+                <li>Last Scan: <span id="lastScan">None</span></li>
+            </ul>
+            <div class="social-buttons">
+                <a href="https://instagram.com/the_legend._.08" class="btn" target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
+                <a href="https://github.com/Kruthan08" class="btn" target="_blank"><i class="fab fa-github"></i> GitHub</a>
+                <a href="https://twitter.com/kruthan8" class="btn" target="_blank"><i class="fab fa-twitter"></i> Twitter</a>
+            </div>
+        </div>
+
+        <div id="history" class="section">
+            <h3>Scan History</h3>
+            <ul id="historyList" class="list-group"></ul>
+            <div class="social-buttons">
+                <a href="https://instagram.com/the_legend._.08" class="btn" target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
+                <a href="https://github.com/Kruthan08" class="btn" target="_blank"><i class="fab fa-github"></i> GitHub</a>
+                <a href="https://twitter.com/kruthan8" class="btn" target="_blank"><i class="fab fa-twitter"></i> Twitter</a>
+            </div>
+        </div>
+
+        <div id="reports" class="section">
+            <h3>Your Reports</h3>
+            <button id="reportBtn" class="btn mb-3"><i class="fas fa-exclamation-triangle"></i> Report Scam</button>
+            <ul id="reportsList" class="list-group"></ul>
+            <div class="social-buttons">
+                <a href="https://instagram.com/the_legend._.08" class="btn" target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
+                <a href="https://github.com/Kruthan08" class="btn" target="_blank"><i class="fab fa-github"></i> GitHub</a>
+                <a href="https://twitter.com/kruthan8" class="btn" target="_blank"><i class="fab fa-twitter"></i> Twitter</a>
+            </div>
+        </div>
+
+        <div id="ai-blocker" class="section">
+            <h3>AI Threat Blocker</h3>
+            <p>Use AI to search and auto-block threats across platforms.</p>
+            <div class="mb-3">
+                <input type="text" id="aiInput" class="form-control" placeholder="Enter URL, email, or call log" style="background: rgba(0,0,0,0.5); border: 1px solid #00ffff; color: #e0e0e0;" data-bs-toggle="tooltip" title="Describe the threat for AI analysis">
+                <select id="platformSelect" class="form-control mt-2" style="background: rgba(0,0,0,0.5); border: 1px solid #00ffff; color: #e0e0e0;">
+                    <option value="website">Website</option>
+                    <option value="email">Email</option>
+                    <option value="call">Call</option>
+                </select>
+                <button id="aiSearchBtn" class="btn mt-2"><i class="fas fa-robot"></i> AI Search & Block <div class="spinner-border spinner-border-sm ms-2" id="aiSpinner" style="display: none;"></div></button>
+            </div>
+            <div id="aiResult" class="alert alert-info mt-3" style="display: none; background: rgba(0,0,0,0.5); border: 1px solid #00ffff; color: #e0e0e0;"></div>
+            <div class="social-buttons">
+                <a href="https://instagram.com/the_legend._.08" class="btn" target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
+                <a href="https://github.com/Kruthan08" class="btn" target="_blank"><i class="fab fa-github"></i> GitHub</a>
+                <a href="https://twitter.com/kruthan8" class="btn" target="_blank"><i class="fab fa-twitter"></i> Twitter</a>
+            </div>
+        </div>
+
+        <div id="settings" class="section">
+            <h3>Settings</h3>
+            <button id="themeToggle" class="btn mb-3"><i class="fas fa-moon"></i> Toggle Dark Mode</button>
+            <button id="clearDataBtn" class="btn mb-3"><i class="fas fa-trash"></i> Clear All Data</button>
+            <p>Customize here.</p>
+            <div class="social-buttons">
+                <a href="https://instagram.com/the_legend._.08" class="btn" target="_blank"><i class="fab fa-instagram"></i> Instagram</a>
+                <a href="https://github.com/Kruthan08" class="btn" target="_blank"><i class="fab fa-github"></i> GitHub</a>
+                <a href="https://twitter.com/kruthan8" class="btn" target="_blank"><i class="fab fa-twitter"></i> Twitter</a>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
